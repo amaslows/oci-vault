@@ -1,14 +1,14 @@
-//vault nodes
-// consul nodes
+# vault nodes
+
 resource "oci_core_instance" "vault" {
   count               = 3
   availability_domain = "${lookup(data.oci_identity_availability_domains.ADs.availability_domains[count.index],"name")}"
-  compartment_id      = "${data.terraform_remote_state.common.vault_compartment}"
+  compartment_id      = data.terraform_remote_state.common.outputs.vault_compartment
   display_name        = "vault-${count.index}"
   shape               = "${var.instance_shape}"
 
   create_vnic_details {
-    subnet_id        = "${data.terraform_remote_state.network.vault_subnets[count.index]}"
+    subnet_id        = data.terraform_remote_state.network.outputs.vault_subnets[0][count.index]
     display_name     = "primaryvnic"
     assign_public_ip = true
     hostname_label   = "vault-${count.index}"
@@ -29,11 +29,13 @@ resource "oci_core_instance" "vault" {
   # When changing this value, make sure to run 'terraform apply' so that it takes effect before the resource is destroyed.
   #preserve_boot_volume = true
 
-  metadata {
-    ssh_authorized_keys = "${var.ssh_public_key}"
+  metadata = {
+    ssh_authorized_keys = "${file(var.ssh_public_key)}"
     user_data           = "${base64encode(file("${path.module}/user-data/vault.txt"))}"
   }
+
   freeform_tags = "${map("vault-server", "freeformvalue${count.index}")}"
+  
   timeouts {
     create = "60m"
   }
